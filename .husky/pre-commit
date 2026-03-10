@@ -1,0 +1,20 @@
+#!/usr/bin/env sh
+
+echo
+echo "🔍 Running lint (ruff)..."
+ruff check .
+if [ $? -ne 0 ]; then
+	echo "❌ Lint failed. Commit aborted."
+	exit 1
+fi
+
+echo
+echo "🎨 Checking code formatting..."
+ruff format .
+if [ $? -ne 0 ]; then
+	echo "❌ Format failed."
+	exit 1
+fi
+
+echo
+echo "✅ All checks passed!"
