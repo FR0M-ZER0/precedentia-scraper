@@ -42,7 +42,23 @@ cp .env.example .env
 
 > Certifique-se de configurar corretamente a URL de conexão com o Redis (`REDIS_URL`).
 
-### 5️⃣ Execute o scraper
+### 5️⃣ Instale as dependências do Node:
+
+O projeto faz uso do Husky e do commitlint, para instalá-los, rode:
+
+```bash
+npm i
+```
+
+Depois, rode o seguinte comando para ativar o Husky:
+
+```bash
+npm run prepare
+```
+
+> **Atenção:** Para commitar, é necessário ativar o ambiente virtual do python.
+
+### 6️⃣ Execute o scraper
 
 ```bash
 python app/main.py
