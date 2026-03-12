@@ -15,7 +15,7 @@ O projeto utiliza as seguintes tecnologias e bibliotecas:
 ### 1️⃣ Crie e ative o ambiente virtual
 
 ```bash
-python -m venv .venv
+python -m venv .venv       # ou python3 no Linux
 source .venv/bin/activate  # Linux/macOS
 .venv\Scripts\activate     # Windows
 ```
