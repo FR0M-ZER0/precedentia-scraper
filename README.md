@@ -29,7 +29,7 @@ pip install -r requirements.txt
 ### 3️⃣ Instale os navegadores do Playwright
 
 ```bash
-playwright install
+playwright install chromium
 ```
 
 ### 4️⃣ Configure as variáveis de ambiente
