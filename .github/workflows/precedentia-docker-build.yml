@@ -1,0 +1,37 @@
+name: CI/CD Pipeline - PrecedentIA - Docker Build
+
+on:
+  push:
+    branches: [ "main", "hml" ]
+
+jobs:
+  build-and-push-docker:
+    name: Build e Push para o DockerHub
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 1. Checkout do código
+        uses: actions/checkout@v4
+
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+        
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+
+      - name: Login no DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # 4. Build e Push da imagem
+      - name: Build and push da API
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: gabguimaraes/precedentia-api:latest
+          platforms: linux/arm64s
