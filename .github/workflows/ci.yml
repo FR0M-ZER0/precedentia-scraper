@@ -1,0 +1,130 @@
+name: CI & Standards Validation
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+    branches: [ "dev", "hml", "main" ]
+
+jobs:
+  validate-pr-title:
+    name: 'Validate PR Title'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validar padrão do título do PR
+        run: |
+          # Regra do docs/padrao-pr.md: [id-task]: Descrição (com verbo no imperativo)
+          PR_TITLE="${{ github.event.pull_request.title }}"
+          if [[ ! "$PR_TITLE" =~ ^\[[a-zA-Z0-9-]+\]:\ [A-Z].* ]]; then
+            echo "❌ Erro: O título do PR não segue o padrão do projeto."
+            echo "Esperado: '[id-task]: Verbo no imperativo...'"
+            echo "Exemplo: '[pr-20]: Adiciona nova funcionalidade'"
+            echo "Encontrado: $PR_TITLE"
+            exit 1
+          fi
+          echo "✅ Título do PR validado com sucesso!"
+
+  validate-branch-name:
+    name: 'Validate Branch Name'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validar padrão do nome da Branch
+        run: |
+          # Regra do docs/padrao-branches.md: tipo/task-id-descrição
+          BRANCH_NAME="${{ github.head_ref }}"
+          if [[ ! "$BRANCH_NAME" =~ ^(feat|hotfix|fix|docs)/[a-zA-Z0-9-]+$ ]]; then
+            echo "❌ Erro: O nome da branch não segue o padrão do projeto."
+            echo "Esperado: 'tipo/task-id-descrição'"
+            echo "Tipos permitidos: feat, hotfix, fix, docs"
+            echo "Exemplo: 'feat/pr-20-nova-funcionalidade'"
+            echo "Encontrado: $BRANCH_NAME"
+            exit 1
+          fi
+          echo "✅ Nome da branch validado com sucesso!"
+
+  validate-commits:
+    name: "Validate Commit Messages"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Código
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 
+
+      - name: Validar mensagens de commit
+        run: |
+          # Regra do docs/padrao-commits.md: tipo(id-task): descrição curta
+          # Tipos: feat, fix, docs, style, refactor, chore, test, ci
+          
+          # Pega todos os commits do PR atual
+          COMMITS=$(git log --format=%B ${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }})
+          
+          REGEX="^(feat|fix|docs|style|refactor|chore|test|ci)\([a-zA-Z0-9-]+\):\ [A-Z].+"
+          
+          while read -r COMMIT_MSG; do
+            # Ignora linhas vazias
+            if [ -z "$COMMIT_MSG" ]; then continue; fi
+            
+            if [[ ! "$COMMIT_MSG" =~ $REGEX ]]; then
+               echo "❌ Erro: O commit falhou na validação: '$COMMIT_MSG'"
+               echo "Esperado: 'tipo(id-task): Descrição com verbo no imperativo'"
+               echo "Exemplo: 'feat(pr-20): Adiciona novo conteúdo'"
+               exit 1
+            fi
+          done <<< "$COMMITS"
+          echo "✅ Todos os commits seguem o padrão!"
+
+  test-python-backend:
+    name: 'Test API & ML (Python)'
+    runs-on: ubuntu-latest
+    needs: [validate-pr-title, validate-branch-name, validate-commits]
+    steps:
+      - name: Checkout Código com Submódulos
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Instalar Dependências da API
+        run: |
+          # Entrando no submódulo da API (ajuste os caminhos conforme necessário)
+          cd precedentia-api 
+          pip install -r requirements.txt
+
+      - name: Rodar Testes Unitários Python (Pytest)
+        run: |
+          cd precedentia-api
+          pytest tests/ # Opcionalmente adicionar o ruff/flake8 para linting aqui
+
+  test-mobile-flutter:
+    name: 'Test Mobile (Flutter)'
+    runs-on: ubuntu-latest
+    needs: [validate-pr-title, validate-branch-name, validate-commits]
+    steps:
+      - name: Checkout Código com Submódulos
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          
+      - name: Instalar Dependências Flutter
+        run: |
+          cd precedentia-mobile
+          flutter pub get
+
+      - name: Analisar Código (Lint)
+        run: |
+          cd precedentia-mobile
+          flutter analyze
+
+      - name: Rodar Testes Unitários Flutter
+        run: |
+          cd precedentia-mobile
+          flutter test
