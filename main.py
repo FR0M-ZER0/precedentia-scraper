@@ -16,17 +16,19 @@ def load_existing_texts(db) -> set:
     """
     precedents = set()
 
-    # Busca todas as chaves que começam com 'precedente:' (exceto o contador)
-    precedent_keys = db.keys('precedente:*')
+    # Busca todas as chaves que começam com 'precedent:' (exceto o contador)
+    precedent_keys = db.keys('precedent:*')
 
     # Remove a chave do contador se ela estiver na lista
-    precedent_keys = [key for key in precedent_keys if key != 'precedente:count']
+    precedent_keys = [key for key in precedent_keys if key != 'precedent:count']
 
     for key in precedent_keys:
         # Extrai o ID do precedente da chave
         # Busca os dados do precedente
         data = db.hgetall(key)
-        precedents.add(data.get('texto_principal'))
+        dedupe_text = data.get('description')
+        if dedupe_text:
+            precedents.add(dedupe_text)
 
     return precedents
 
@@ -35,8 +37,8 @@ def save_precedent(db, user_data):
     Cria um novo precedente com ID auto-incrementado usando INCR
     """
 
-    new_id = db.incr('precedente:count') # ID auto-incrementado
-    user_key = f'precedente:{new_id}'
+    new_id = db.incr('precedent:count') # ID auto-incrementado
+    user_key = f'precedent:{new_id}'
 
     db.hset(user_key, mapping=user_data)
 
@@ -53,15 +55,15 @@ def dump_card_info(card_idx: int, court: str, status: str, html_snippet: str = "
         print(f"    html     : {html_snippet[:300]}")
 
 
-def copy_main_text(page, card, card_idx: int = 0, court: str = "", status: str = "") -> str:
+def copy_description(page, card, card_idx: int = 0, court: str = "", status: str = "") -> str:
     """
     Clica no botão 'Copiar texto principal' do card e lê o clipboard.
     Tenta até 5 vezes com espera crescente para garantir que o clipboard seja preenchido.
     Em caso de falha exibe diagnóstico com tribunal e situação do card.
     Retorna a string copiada ou '' em caso de falha definitiva.
     """
-    attempts = 5
-    delays = [0.5, 1.0, 1.5, 2.0, 3.0]  # espera após cada tentativa
+    attempts = 3
+    delays = [0.5, 1.0, 1.5]  # espera após cada tentativa
 
     try:
         btn = card.locator("button[aria-label='Copiar texto principal para área de transferência']")
@@ -91,6 +93,41 @@ def copy_main_text(page, card, card_idx: int = 0, court: str = "", status: str =
     print(f"  [AVISO] Texto vazio após {attempts} tentativas.")
     dump_card_info(card_idx, court, status, card.inner_html())
     return ""
+
+
+def copy_precedent_url(page, card) -> str:
+    """Copia a URL do precedente pelo botão específico e lê do clipboard."""
+    attempts = 3
+    delays = [0.3, 0.6, 1.0]
+
+    try:
+        btn = card.locator("button[aria-label='Copiar link para este precedente']")
+        btn.wait_for(state="visible", timeout=5000)
+    except Exception:
+        return ""
+
+    for attempt in range(1, attempts + 1):
+        try:
+            btn.click()
+            time.sleep(delays[attempt - 1])
+            url = page.evaluate("() => navigator.clipboard.readText()")
+            if url and url.strip():
+                return url.strip()
+        except Exception:
+            pass
+
+    return ""
+
+
+def split_name_and_description(text: str) -> tuple[str, str]:
+    """Separa primeira linha como nome e retorna descrição sem repetir o nome."""
+    if not text:
+        return "", ""
+
+    lines = text.splitlines()
+    name = lines[0].strip() if lines else ""
+    description = "\n".join(lines[1:]).strip() if len(lines) > 1 else ""
+    return name, description
 
 
 def extract_cards(page, existing_texts: set) -> int:
@@ -131,22 +168,31 @@ def extract_cards(page, existing_texts: set) -> int:
             status = ""
 
         # 3ª informação: texto principal via botão copiar
-        main_text = copy_main_text(page, card, card_idx=card_index, court=court, status=status)
+        main_text = copy_description(page, card, card_idx=card_index, court=court, status=status)
+
+        # 4ª informação: URL via botão 'Copiar link para este precedente'
+        url = copy_precedent_url(page, card)
 
         if not main_text:
-            continue  # diagnóstico já exibido dentro de copiar_texto_principal
+            continue  # diagnóstico já exibido dentro de copy_description
 
-        if main_text in existing_texts:
+        name, description = split_name_and_description(main_text)
+
+        dedupe_text = description
+
+        if dedupe_text in existing_texts:
             print(f"  [Card {card_index}] Duplicata — já existe no Banco.")
             continue
 
         row = {
             "tribunal": court,
-            "situacao": status,
-            "texto_principal": main_text,
+            "situation": status,
+            "description": description,
+            "name": name,
+            "url": url,
         }
         save_precedent(r, row)
-        existing_texts.add(main_text)
+        existing_texts.add(dedupe_text)
         new_items += 1
         print(f"  [Card {card_index}] Salvo — tribunal: {court!r} | situação: {status[:60]!r}")
 
