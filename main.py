@@ -34,6 +34,28 @@ def load_existing_texts(db) -> set:
     return precedents
 
 
+def map_species(tipo: str) -> str:
+    tipos = {
+        'SUM': 'Súmula',
+        'SV': 'Súmula Vinculante',
+        'RG': 'Repercussão Geral',
+        'ADI': 'Ação Direta de Inconstitucionalidade',
+        'ADC': 'Ação Declaratória de Constitucionalidade',
+        'ADO': 'Ação Direta de Inconstitucionalidade por Omissão',
+        'ADPF': 'Arguição de Descumprimento de Preceito Fundamental',
+        'IAC': 'Incidente de Assunção de Competência',
+        'SIRDR': 'Súmula do IRDR',
+        'RR': 'Recurso Repetitivo',
+        'CT': 'Consulta',
+        'IRDR': 'Incidente de Resolução de Demandas Repetitivas (IRDR)',
+        'IRR': 'Incidente de Recursos Repetitivos',
+        'PUIL': 'Pedido de Uniformização de Interpretação de Lei',
+        'NT': 'Nota Técnica',
+        'OJ': 'Orientação Jurisprudencial',
+    }
+    return tipos.get(tipo, tipo)
+
+
 def save_precedent(db, user_data):
     """
     Cria um novo precedente com ID auto-incrementado usando INCR
@@ -114,12 +136,17 @@ def main():
             data = response.json()
 
             for item in data.get('resultados', []):
+                precedent_type = normalize_text(item.get('tipo', ''))
+                precedent_number = item.get('nr', '')
 
                 row = {
                     "tribunal": normalize_text(item.get('orgao')),
                     "situation": normalize_text(item.get('situacao')),
-                    "name": normalize_text(item.get('questao')),
+                    "species": map_species(normalize_text(item.get('tipo', ''))),
+                    "name": f"{map_species(precedent_type)} nº {precedent_number}" if precedent_number else map_species(precedent_type),
+                    "question": normalize_text(item.get('questao')),
                     "description": normalize_text(item.get('tese')),
+                    "summary": "",
                     "url": f"https://pangeabnp.pdpj.jus.br/pesquisa?orgao={normalize_text(item.get('orgao'))}&tipo={normalize_text(item.get('tipo'))}&nr={item.get('nr')}",
                     "last_update": normalize_text(item.get('ultimaAtualizacao')),
                 }
