@@ -6,7 +6,7 @@ Serviço de **web scraping** do sistema **PrecedentIA**, responsável por coleta
 
 O projeto utiliza as seguintes tecnologias e bibliotecas:
 
-- **Playwright** - Automação de navegadores para raspagem de páginas dinâmicas
+- **Requests** - Requisições HTTP para coleta de dados via API
 - **Redis** - Armazenamento em cache dos dados coletados, disponibilizados para consumo por outros serviços
 - **Python-dotenv** - Gerenciamento de variáveis de ambiente via arquivo `.env`
 
@@ -26,13 +26,7 @@ source .venv/bin/activate  # Linux/macOS
 pip install -r requirements.txt
 ```
 
-### 3️⃣ Instale os navegadores do Playwright
-
-```bash
-playwright install
-```
-
-### 4️⃣ Configure as variáveis de ambiente
+### 3️⃣ Configure as variáveis de ambiente
 
 Copie o arquivo de exemplo e preencha com os valores adequados:
 
@@ -42,7 +36,7 @@ cp .env.example .env
 
 > Certifique-se de configurar corretamente a URL de conexão com o Redis (`REDIS_URL`).
 
-### 5️⃣ Instale as dependências do Node:
+### 4️⃣ Instale as dependências do Node:
 
 O projeto faz uso do Husky e do commitlint, para instalá-los, rode:
 
@@ -58,10 +52,10 @@ npm run prepare
 
 > **Atenção:** Para commitar, é necessário ativar o ambiente virtual do python.
 
-### 6️⃣ Execute o scraper
+### 5️⃣ Execute o scraper
 
 ```bash
-python app/main.py
+python main.py
 ```
 
 ## Saiba mais
