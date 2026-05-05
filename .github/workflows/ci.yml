@@ -1,0 +1,50 @@
+name: CI & Standards Validation
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+    branches: [ "dev", "hml", "main" ]
+
+jobs:
+  validate-standards:
+    name: 'Validate PR & Commits'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Código
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validar Título do PR
+        run: |
+          PR_TITLE="${{ github.event.pull_request.title }}"
+          if [[ ! "$PR_TITLE" =~ ^\[[a-zA-Z0-9-]+\]:\ [A-Z].* ]]; then
+            echo "❌ Erro no título do PR"
+            exit 1
+          fi
+
+      - name: Validar Mensagens de Commit
+        run: |
+          COMMITS=$(git log --format=%B ${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }})
+          REGEX="^(feat|fix|docs|style|refactor|chore|test|ci)\([a-zA-Z0-9-]+\):\ [A-Z].+"
+          while read -r MSG; do
+            if [ -n "$MSG" ] && [[ ! "$MSG" =~ $REGEX ]]; then
+              echo "❌ Erro no commit: $MSG"
+              exit 1
+            fi
+          done <<< "$COMMITS"
+
+  test-python:
+    name: 'Run Python Tests'
+    runs-on: ubuntu-latest
+    needs: validate-standards
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Dependencies
+        run: pip install -r requirements.txt
+      - name: Run Tests
+        run: pytest
